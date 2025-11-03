@@ -1,0 +1,82 @@
+-- 🔹 Script unique : Invisibility Toggle GUI + Server Handling
+-- Fonctionne avec FilteringEnabled
+-- Auteur : GPT-5
+
+-- SERVICES
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+-- 🔸 Vérifie si le RemoteEvent existe déjà, sinon le crée
+local remote = ReplicatedStorage:FindFirstChild("RequestToggleInvisible")
+if not remote then
+    local newRemote = Instance.new("RemoteEvent")
+    newRemote.Name = "RequestToggleInvisible"
+    newRemote.Parent = ReplicatedStorage
+    remote = newRemote
+end
+
+-------------------------------------------------
+-- 🔹 PARTIE SERVEUR (gérée localement via OnServerEvent)
+-------------------------------------------------
+if not game:GetService("RunService"):IsClient() then return end
+
+-- On s'assure qu'un seul listener serveur est créé
+if not _G.InvisibilityServerCreated then
+    _G.InvisibilityServerCreated = true
+
+    remote.OnServerEvent:Connect(function(playerWhoClicked)
+        local char = playerWhoClicked.Character
+        if not char then return end
+
+        local invisible = not char:GetAttribute("Invisible")
+        char:SetAttribute("Invisible", invisible)
+
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Transparency = invisible and 1 or 0
+                part.CanCollide = not invisible
+            elseif part:IsA("Decal") or part:IsA("Texture") then
+                part.Transparency = invisible and 1 or 0
+            elseif part:IsA("ParticleEmitter") or part:IsA("Trail") then
+                part.Enabled = not invisible
+            end
+        end
+    end)
+end
+
+-------------------------------------------------
+-- 🔹 PARTIE CLIENT (GUI + interaction)
+-------------------------------------------------
+
+-- GUI setup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "InvisibilityGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 160, 0, 45)
+button.Position = UDim2.new(0.05, 0, 0.8, 0)
+button.Text = "Invisibility: OFF"
+button.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Font = Enum.Font.GothamBold
+button.TextSize = 18
+button.Parent = screenGui
+
+-- Button toggle logic
+local invisible = false
+
+button.MouseButton1Click:Connect(function()
+    invisible = not invisible
+    remote:FireServer() -- Demande au serveur de changer la visibilité
+
+    if invisible then
+        button.Text = "Invisibility: ON"
+        button.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    else
+        button.Text = "Invisibility: OFF"
+        button.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+end)
